@@ -15,7 +15,6 @@ from dotenv import load_dotenv
 import os
 from typing import List, Tuple, Dict, Generator, Optional
 import subprocess
-import pyautogui
 import time
 from PIL import ImageGrab
 import webbrowser
@@ -32,6 +31,9 @@ import platform
 from docx import Document
 from openpyxl import Workbook
 from pptx import Presentation
+
+# Check if running in headless environment
+IS_HEADLESS = not os.environ.get('DISPLAY')
 
 # Load environment variables and configuration
 load_dotenv()
@@ -95,7 +97,10 @@ def web_search(query: str, num_results: int = 3) -> str:
 
 def minimize_active_window():
     """Minimize the currently active window."""
+    if IS_HEADLESS:
+        return True  # Return success in headless mode
     try:
+        import pyautogui
         # Use platform-specific hotkey
         if platform.system() == 'Windows':
             pyautogui.hotkey('win', 'down')
@@ -110,7 +115,10 @@ def minimize_active_window():
 
 def resize_active_window():
     """Resize the currently active window to a smaller size."""
+    if IS_HEADLESS:
+        return True  # Return success in headless mode
     try:
+        import pyautogui
         # Get screen dimensions
         screen_width, screen_height = pyautogui.size()
         
@@ -137,7 +145,10 @@ def resize_active_window():
 
 def resize_browser_window():
     """Resize the active browser window using a more reliable method."""
+    if IS_HEADLESS:
+        return True  # Return success in headless mode
     try:
+        import pyautogui
         # Get screen dimensions
         screen_width, screen_height = pyautogui.size()
         
