@@ -19,29 +19,19 @@ import pyautogui
 import time
 from PIL import ImageGrab
 import webbrowser
-import keyboard
 from langchain_community.tools import DuckDuckGoSearchRun
 import re
-import pyperclip  # Add this import at the top
+import pyperclip
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import pyperclip
-import time
 import glob
 from pathlib import Path
-import win32com.client
-from win32gui import GetWindowText, EnumWindows, GetForegroundWindow, SetWindowPos, GetWindowRect
-from win32con import HWND_TOP, SWP_SHOWWINDOW
-import win32gui
-import win32con
-
-# Add these imports at the top
-import win32com.client as win32
-from win32com.client import constants
-import os.path
-import pythoncom
+import platform
+from docx import Document
+from openpyxl import Workbook
+from pptx import Presentation
 
 # Load environment variables and configuration
 load_dotenv()
@@ -106,13 +96,13 @@ def web_search(query: str, num_results: int = 3) -> str:
 def minimize_active_window():
     """Minimize the currently active window."""
     try:
-        import win32gui
-        import win32con
-        
-        # Get handle of active window
-        hwnd = win32gui.GetForegroundWindow()
-        # Minimize window
-        win32gui.ShowWindow(hwnd, win32con.SW_MINIMIZE)
+        # Use platform-specific hotkey
+        if platform.system() == 'Windows':
+            pyautogui.hotkey('win', 'down')
+        elif platform.system() == 'Darwin':  # macOS
+            pyautogui.hotkey('command', 'm')
+        else:  # Linux
+            pyautogui.hotkey('alt', 'f9')
         return True
     except Exception as e:
         print(f"Error minimizing window: {str(e)}")
@@ -121,15 +111,8 @@ def minimize_active_window():
 def resize_active_window():
     """Resize the currently active window to a smaller size."""
     try:
-        import win32gui
-        import win32con
-        
-        # Get handle of active window
-        hwnd = win32gui.GetForegroundWindow()
-        
         # Get screen dimensions
-        screen_width = win32gui.GetSystemMetrics(win32con.SM_CXSCREEN)
-        screen_height = win32gui.GetSystemMetrics(win32con.SM_CYSCREEN)
+        screen_width, screen_height = pyautogui.size()
         
         # Calculate new window size (50% of screen)
         new_width = screen_width // 2
@@ -139,8 +122,14 @@ def resize_active_window():
         new_x = (screen_width - new_width) // 2
         new_y = (screen_height - new_height) // 2
         
-        # Set new window position and size
-        win32gui.SetWindowPos(hwnd, win32con.HWND_TOP, new_x, new_y, new_width, new_height, win32con.SWP_SHOWWINDOW)
+        # Use platform-specific window management
+        if platform.system() == 'Windows':
+            pyautogui.hotkey('win', 'left')  # Snap to left half
+        elif platform.system() == 'Darwin':  # macOS
+            pyautogui.hotkey('command', 'option', 'left')  # Move to left half
+        else:  # Linux
+            pyautogui.hotkey('ctrl', 'alt', 'left')  # Move to left workspace
+        
         return True
     except Exception as e:
         print(f"Error resizing window: {str(e)}")
@@ -149,35 +138,31 @@ def resize_active_window():
 def resize_browser_window():
     """Resize the active browser window using a more reliable method."""
     try:
-        def callback(hwnd, windows):
-            if "Chrome" in GetWindowText(hwnd) or "Edge" in GetWindowText(hwnd) or "Firefox" in GetWindowText(hwnd):
-                # Get screen dimensions
-                screen_width = win32gui.GetSystemMetrics(win32con.SM_CXSCREEN)
-                screen_height = win32gui.GetSystemMetrics(win32con.SM_CYSCREEN)
-                
-                # Get current window position and size
-                left, top, right, bottom = win32gui.GetWindowRect(hwnd)
-                
-                # Calculate new dimensions (65% of screen)
-                new_width = int(screen_width * 0.65)
-                new_height = int(screen_height * 0.65)
-                
-                # Calculate position to center the window
-                new_x = (screen_width - new_width) // 2
-                new_y = (screen_height - new_height) // 2
-                
-                # Set new window position and size
-                win32gui.SetWindowPos(
-                    hwnd, 
-                    HWND_TOP,
-                    new_x, new_y, new_width, new_height,
-                    win32con.SWP_SHOWWINDOW
-                )
-                return False  # Stop enumeration after finding first browser window
-            return True
+        # Get screen dimensions
+        screen_width, screen_height = pyautogui.size()
         
-        # Find and resize browser window
-        EnumWindows(callback, [])
+        # Calculate new dimensions (65% of screen)
+        new_width = int(screen_width * 0.65)
+        new_height = int(screen_height * 0.65)
+        
+        # Calculate position to center the window
+        new_x = (screen_width - new_width) // 2
+        new_y = (screen_height - new_height) // 2
+        
+        # Use platform-specific window management
+        if platform.system() == 'Windows':
+            pyautogui.hotkey('win', 'up')  # Maximize
+            time.sleep(0.5)
+            pyautogui.hotkey('win', 'down')  # Restore
+        elif platform.system() == 'Darwin':  # macOS
+            pyautogui.hotkey('command', 'option', 'f')  # Full screen
+            time.sleep(0.5)
+            pyautogui.hotkey('command', 'option', 'f')  # Exit full screen
+        else:  # Linux
+            pyautogui.hotkey('alt', 'f10')  # Maximize
+            time.sleep(0.5)
+            pyautogui.hotkey('alt', 'f5')  # Restore
+        
         return True
     except Exception as e:
         print(f"Error resizing window: {str(e)}")
@@ -185,50 +170,50 @@ def resize_browser_window():
 
 def create_office_document(app_type: str, content: str = None) -> str:
     """
-    Create and write to Microsoft Office documents.
+    Create and write to Microsoft Office documents using cross-platform libraries.
     
     Args:
         app_type: 'word', 'excel', or 'powerpoint'
         content: Content to write in the document
     """
     try:
-        # Initialize COM for the current thread
-        pythoncom.CoInitialize()
+        # Create a temporary directory for the documents
+        temp_dir = os.path.join(os.path.expanduser("~"), "Documents", "temp")
+        os.makedirs(temp_dir, exist_ok=True)
         
         if app_type == 'word':
-            word = win32.Dispatch('Word.Application')
-            word.Visible = True
-            doc = word.Documents.Add()
+            doc = Document()
             if content:
-                doc.Content.Text = content
-            return "Opened Microsoft Word and added content"
+                doc.add_paragraph(content)
+            file_path = os.path.join(temp_dir, "document.docx")
+            doc.save(file_path)
+            return f"Created Word document at: {file_path}"
             
         elif app_type == 'excel':
-            excel = win32.Dispatch('Excel.Application')
-            excel.Visible = True
-            wb = excel.Workbooks.Add()
-            sheet = wb.ActiveSheet
+            wb = Workbook()
+            ws = wb.active
             if content:
                 # Split content by lines and write to cells
                 for i, line in enumerate(content.split('\n'), 1):
-                    sheet.Cells(i, 1).Value = line
-            return "Opened Microsoft Excel and added content"
+                    ws.cell(row=i, column=1, value=line)
+            file_path = os.path.join(temp_dir, "spreadsheet.xlsx")
+            wb.save(file_path)
+            return f"Created Excel spreadsheet at: {file_path}"
             
         elif app_type == 'powerpoint':
-            ppt = win32.Dispatch('PowerPoint.Application')
-            ppt.Visible = True
-            presentation = ppt.Presentations.Add()
-            slide = presentation.Slides.Add(1, 1)  # 1 = layout with title and content
+            prs = Presentation()
+            slide = prs.slides.add_slide(prs.slide_layouts[1])  # Title and content layout
             if content:
-                slide.Shapes.Title.TextFrame.TextRange.Text = "New Slide"
-                slide.Shapes.Item(2).TextFrame.TextRange.Text = content
-            return "Opened Microsoft PowerPoint and added content"
+                title = slide.shapes.title
+                title.text = "New Slide"
+                content_placeholder = slide.placeholders[1]
+                content_placeholder.text = content
+            file_path = os.path.join(temp_dir, "presentation.pptx")
+            prs.save(file_path)
+            return f"Created PowerPoint presentation at: {file_path}"
             
     except Exception as e:
         return f"Error creating {app_type} document: {str(e)}"
-    finally:
-        # Clean up COM
-        pythoncom.CoUninitialize()
 
 class GroqLLM:
     """
@@ -349,7 +334,7 @@ class GroqLLM:
 
     def windows_search(self, query: str, item_type: str = 'both') -> List[str]:
         """
-        Use Windows Search to find files or folders.
+        Search for files or folders using cross-platform methods.
         
         Args:
             query: Search query
@@ -359,43 +344,25 @@ class GroqLLM:
             List of found paths
         """
         try:
-            shell = win32com.client.Dispatch("Shell.Application")
-            search_folder = shell.NameSpace("shell:SearchHomeFolder")
-            
-            # Build search query
-            if item_type == 'folder':
-                search_query = f"System.ItemType:=\"Folder\" AND System.FileName:=\"*{query}*\""
-            elif item_type == 'file':
-                search_query = f"System.ItemType:!=\"Folder\" AND System.FileName:=\"*{query}*\""
-            else:
-                search_query = f"System.FileName:=\"*{query}*\""
-            
-            items = search_folder.Items().Filter(search_query)
-            return [item.Path for item in items]
+            results = []
+            for base_path in self.search_paths:
+                try:
+                    if item_type in ['both', 'file']:
+                        # Search for files
+                        for file in glob.glob(f"{base_path}/**/*{query}*", recursive=True):
+                            if os.path.isfile(file):
+                                results.append(file)
+                    
+                    if item_type in ['both', 'folder']:
+                        # Search for folders
+                        for folder in glob.glob(f"{base_path}/**/*{query}*", recursive=True):
+                            if os.path.isdir(folder):
+                                results.append(folder)
+                except Exception:
+                    continue
+            return results
         except Exception as e:
             return []
-
-    def fallback_search(self, query: str, item_type: str = 'both') -> List[str]:
-        """
-        Fallback search method using glob.
-        """
-        results = []
-        for base_path in self.search_paths:
-            try:
-                if item_type in ['both', 'file']:
-                    # Search for files
-                    for file in glob.glob(f"{base_path}/**/*{query}*", recursive=True):
-                        if os.path.isfile(file):
-                            results.append(file)
-                
-                if item_type in ['both', 'folder']:
-                    # Search for folders
-                    for folder in glob.glob(f"{base_path}/**/*{query}*", recursive=True):
-                        if os.path.isdir(folder):
-                            results.append(folder)
-            except Exception:
-                continue
-        return results
 
     def open_item(self, path: str) -> str:
         """
@@ -404,7 +371,14 @@ class GroqLLM:
         try:
             # Normalize the path before opening
             normalized_path = os.path.normpath(path)
-            os.startfile(normalized_path)
+            
+            if platform.system() == 'Windows':
+                os.startfile(normalized_path)
+            elif platform.system() == 'Darwin':  # macOS
+                subprocess.run(['open', normalized_path])
+            else:  # Linux
+                subprocess.run(['xdg-open', normalized_path])
+            
             return f"Successfully opened: {normalized_path}"
         except Exception as e:
             return f"Error opening {normalized_path}: {str(e)}"
@@ -415,11 +389,11 @@ class GroqLLM:
         """
         try:
             if operation == 'find_folder':
-                results = self.windows_search(query, 'folder') or self.fallback_search(query, 'folder')
+                results = self.windows_search(query, 'folder') or self.windows_search(query, 'file')
             elif operation == 'find_file':
-                results = self.windows_search(query, 'file') or self.fallback_search(query, 'file')
+                results = self.windows_search(query, 'file')
             else:  # search_item or open_item
-                results = self.windows_search(query, 'both') or self.fallback_search(query, 'both')
+                results = self.windows_search(query, 'both')
 
             if not results:
                 return f"No items found matching '{query}'"

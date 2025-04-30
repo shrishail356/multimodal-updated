@@ -25,19 +25,25 @@ load_dotenv()
 with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
+# Create chat_sessions directory if it doesn't exist
+os.makedirs(config["chat_history_path"], exist_ok=True)
+
 AVAILABLE_MODELS = [
-    "gemma2-9b-it",
-    "gemma-7b-it",
-    "llama3-groq-70b-8192-tool-use-preview",
-    "llama3-groq-8b-8192-tool-use-preview",
-    "llama-3.1-70b-versatile",
-    "llama-3.1-8b-instant",
-    "llama-3.2-1b-preview",
-    "llama-3.2-3b-preview",
-    "llama-guard-3-8b",
-    "llama3-70b-8192",
-    "llama3-8b-8192",
-    "mixtral-8x7b-32768"
+    # Production Models
+    "gemma2-9b-it",  # Google
+    "llama-3.3-70b-versatile",  # Meta
+    "llama-3.1-8b-instant",  # Meta
+    "llama-guard-3-8b",  # Meta
+    "llama3-70b-8192",  # Meta
+    "llama3-8b-8192",  # Meta
+    
+    # Preview Models
+    "allam-2-7b",  # SDAIA
+    "deepseek-r1-distill-llama-70b",  # DeepSeek
+    "meta-llama/llama-4-maverick-17b-128e-instruct",  # Meta
+    "meta-llama/llama-4-scout-17b-16e-instruct",  # Meta
+    "mistral-saba-24b",  # Mistral
+    "qwen-qwq-32b"  # Alibaba Cloud
 ]
 
 def load_chain(chat_history):
@@ -209,7 +215,7 @@ def main():
         
         # Initialize selected_model in session state if not present
         if "selected_model" not in st.session_state:
-            st.session_state.selected_model = "llama-3.1-70b-versatile"
+            st.session_state.selected_model = "llama-3.3-70b-versatile"
         
         st.session_state.selected_model = st.selectbox(
             "Select Model",
