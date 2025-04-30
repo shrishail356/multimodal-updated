@@ -865,7 +865,11 @@ Format each step as:
 
 def create_embeddings(embeddings_path: str = config["embeddings_path"]) -> HuggingFaceInstructEmbeddings:
     """Create embeddings instance for vector storage."""
-    return HuggingFaceInstructEmbeddings(model_name=embeddings_path)
+    return HuggingFaceInstructEmbeddings(
+        model_name=embeddings_path,
+        model_kwargs={"device": "cpu"},
+        encode_kwargs={"normalize_embeddings": True}
+    )
 
 def create_chat_memory(chat_history: List) -> ConversationBufferWindowMemory:
     """Create conversation memory with specified history."""
